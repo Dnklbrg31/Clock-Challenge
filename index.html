@@ -13,9 +13,7 @@
       --text-muted: #777;
       --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       background: transparent;
@@ -33,21 +31,21 @@
       box-shadow: 0 0 12px rgba(255, 0, 128, 0.4);
       overflow: hidden;
       position: relative;
+      backdrop-filter: blur(10px);
     }
-    .info-button {
+    .info-button, .theme-btn {
       position: absolute;
       top: 6px;
-      right: 10px;
       font-size: 18px;
-      color: #888;
+      color: #ccc;
       cursor: pointer;
       z-index: 20;
     }
-    .popup {
+    .info-button { right: 10px; }
+    .theme-btn { left: 10px; }
+    .popup, .theme-popup {
       position: absolute;
       top: 32px;
-      right: 10px;
-      width: 220px;
       background: #1e1e1e;
       color: var(--text-light);
       font-size: 12px;
@@ -55,8 +53,19 @@
       border: 1px solid #333;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(255, 0, 128, 0.3);
-      display: none;
       z-index: 10;
+      display: none;
+    }
+    .popup { right: 10px; width: 220px; }
+    .theme-popup { left: 10px; width: 180px; z-index: 30; }
+    .theme-popup div {
+      padding: 6px;
+      margin: 2px 0;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .theme-popup div:hover {
+      background-color: #333;
     }
     .swiper {
       display: flex;
@@ -106,7 +115,7 @@
       align-items: center;
       gap: 6px;
     }
-    .start-button {
+    .start-button, .lap-button {
       background-color: var(--accent-1);
       border: none;
       border-radius: 20px;
@@ -137,7 +146,7 @@
     }
     .dots {
       position: absolute;
-      bottom: 20px;
+      bottom: 18px;
       width: 100%;
       text-align: center;
       padding-bottom: 8px;
@@ -161,6 +170,7 @@
     .city-label {
       font-size: 13px;
       color: var(--accent-2);
+      margin-bottom: 2px;
     }
     .day-label {
       font-size: 12px;
@@ -184,6 +194,12 @@
 </head>
 <body>
   <div class="widget-container">
+    <div class="theme-btn" id="theme-btn">🖌️</div>
+    <div class="theme-popup" id="theme-popup">
+      <div onclick="setTheme('synthwave')">🎛 Synthwave</div>
+      <div onclick="setTheme('darkglass')">🧊 Dark Glass</div>
+      <div onclick="setTheme('neon')">🌈 Neon Pop</div>
+    </div>
     <div class="swiper" id="swiper">
       <!-- Clock Panel -->
       <div class="panel" id="clock-panel">
@@ -233,6 +249,51 @@
   </div>
 
   <script>
+    // Theme logic
+    const themes = {
+      synthwave: {
+        '--bg-dark': '#0f0c29',
+        '--accent-1': '#ff2a6d',
+        '--accent-2': '#00f0ff',
+        '--text-light': '#f1cbff',
+        '--text-muted': '#a185b4',
+      },
+      darkglass: {
+        '--bg-dark': 'rgba(18,18,18,0.6)',
+        '--accent-1': '#00eaff',
+        '--accent-2': '#ff00ff',
+        '--text-light': '#ffffff',
+        '--text-muted': '#cccccc',
+      },
+      neon: {
+        '--bg-dark': '#0d0d0d',
+        '--accent-1': '#ccff00',
+        '--accent-2': '#ff0099',
+        '--text-light': '#ffffff',
+        '--text-muted': '#80dfff',
+      }
+    };
+
+    document.getElementById('theme-btn').onclick = () => {
+      const popup = document.getElementById('theme-popup');
+      popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+    };
+
+    function setTheme(name) {
+      const theme = themes[name];
+      for (let key in theme) {
+        document.documentElement.style.setProperty(key, theme[key]);
+      }
+      localStorage.setItem('theme', name);
+      document.getElementById('theme-popup').style.display = 'none';
+    }
+
+    window.onload = () => {
+      const saved = localStorage.getItem('theme');
+      if (saved && themes[saved]) setTheme(saved);
+    };
+
+    // Swiper logic
     const swiper = document.getElementById('swiper');
     const dots = document.querySelectorAll('.dot');
     let currentIndex = 0;
