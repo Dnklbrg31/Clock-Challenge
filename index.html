@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cyberpunk Time Widget</title>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --accent-1: #00ffcc;
+      --accent-2: #ff00ff;
+      --text-light: #e0e0e0;
+      --text-muted: #777;
+      --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: var(--font-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .widget-container {
+      width: 260px;
+      height: 260px;
+      background-color: var(--bg-dark);
+      border-radius: 18px;
+      box-shadow: 0 0 12px rgba(255, 0, 128, 0.4);
+      overflow: hidden;
+      position: relative;
+    }
+    .info-button {
+      position: absolute;
+      top: 6px;
+      right: 10px;
+      font-size: 18px;
+      color: #888;
+      cursor: pointer;
+      z-index: 20;
+    }
+    .popup {
+      position: absolute;
+      top: 32px;
+      right: 10px;
+      width: 220px;
+      background: #1e1e1e;
+      color: var(--text-light);
+      font-size: 12px;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(255, 0, 128, 0.3);
+      display: none;
+      z-index: 10;
+    }
+    .swiper {
+      display: flex;
+      width: 780px;
+      height: 100%;
+      transition: transform 0.3s ease-in-out;
+    }
+    .panel {
+      width: 260px;
+      height: 260px;
+      padding: 18px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-light);
+      position: relative;
+    }
+    .time-display, .clock-display {
+      font-size: 52px;
+      font-weight: bold;
+      color: var(--accent-1);
+      letter-spacing: 2px;
+      margin-top: 12px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background-color: #333;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+    .progress {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+      width: 0%;
+      transition: width 1s linear;
+    }
+    .button-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .start-button, .lap-button {
+      background-color: var(--accent-1);
+      border: none;
+      border-radius: 20px;
+      padding: 6px 20px;
+      font-weight: bold;
+      color: #000;
+      cursor: pointer;
+    }
+    .cancel-button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .lap-log {
+      width: 100%;
+      max-height: 60px;
+      overflow-y: auto;
+      font-size: 13px;
+      font-family: monospace;
+      border-top: 1px solid #333;
+      padding-top: 4px;
+    }
+    .lap-log div {
+      color: var(--accent-2);
+    }
+    .dots {
+      position: absolute;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+      padding-bottom: 6px;
+    }
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin: 0 8px;
+      background-color: #444;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .dot.active {
+      background-color: var(--accent-1);
+    }
+    .dot:hover {
+      background-color: var(--accent-2);
+    }
+    .city-label, .mode-label {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--text-light);
+    }
+    .clock-label {
+      font-size: 13px;
+      color: var(--accent-2);
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="widget-container" ontouchstart="startTouch(event)" ontouchmove="moveTouch(event)">
+    <div class="info-button" onclick="togglePopup()">?</div>
+    <div class="popup" id="infoPopup">
+      <strong>Instructions:</strong><br/>
+      • Swipe left/right on touch devices<br/>
+      • Or click the dots below to switch modes<br/>
+      • Each mode has its own controls<br/>
+    </div>
+    <div class="swiper" id="swiper">
+      <!-- CLOCK -->
+      <div class="panel">
+        <div class="clock-display" id="clock">--:--:--</div>
+        <div class="progress-bar"><div class="progress" id="clockProgress"></div></div>
+        <div class="city-label" id="city">Loading...</div>
+        <div class="clock-label">Local Time</div>
+      </div>
+
+      <!-- STOPWATCH -->
+      <div class="panel">
+        <div class="time-display" id="stopwatch">00:00</div>
+        <div class="progress-bar"><div class="progress" id="stopwatchProgress"></div></div>
+        <div class="mode-label">Stopwatch Mode</div>
+        <div class="button-stack">
+          <button class="start-button" onclick="startStopwatch()">Start</button>
+          <button class="cancel-button" onclick="resetStopwatch()">Reset</button>
+        </div>
+        <button class="lap-button" onclick="recordLap()">Lap</button>
+        <div class="lap-log" id="lapLog"></div>
+      </div>
+
+      <!-- TIMER -->
+      <div class="panel">
+        <div class="time-display" id="timerDisplay" onclick="promptTimer()">00:00</div>
+        <div class="progress-bar"><div class="progress" id="timerProgress"></div></div>
+        <div class="mode-label">Countdown Timer</div>
+        <div class="button-stack">
+          <button class="start-button" onclick="startTimer()">Start</button>
+          <button class="cancel-button" onclick="resetTimer()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="dots">
+      <span class="dot active" onclick="goToPage(0)"></span>
+      <span class="dot" onclick="goToPage(1)"></span>
+      <span class="dot" onclick="goToPage(2)"></span>
+    </div>
+  </div>
+  <script>
+    let currentPage = 0;
+    let startX = null;
+    const swiper = document.getElementById("swiper");
+
+    function updateSwiper() {
+      swiper.style.transform = `translateX(-${currentPage * 260}px)`;
+      document.querySelectorAll('.dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === currentPage);
+      });
+    }
+    function startTouch(e) {
+      startX = e.touches[0].clientX;
+    }
+    function moveTouch(e) {
+      if (!startX) return;
+      const deltaX = e.touches[0].clientX - startX;
+      if (Math.abs(deltaX) > 50) {
+        if (deltaX < 0 && currentPage < 2) currentPage++;
+        else if (deltaX > 0 && currentPage > 0) currentPage--;
+        updateSwiper();
+        startX = null;
+      }
+    }
+    function goToPage(i) {
+      currentPage = i;
+      updateSwiper();
+    }
+    function togglePopup() {
+      const popup = document.getElementById("infoPopup");
+      popup.style.display = popup.style.display === "block" ? "none" : "block";
+    }
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById("clock").textContent = `${h}:${m}:${s}`;
+      const pct = ((now.getMinutes() * 60) + now.getSeconds()) / 3600 * 100;
+      document.getElementById("clockProgress").style.width = `${pct}%`;
+    }
+    function getCityName() {
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("city").textContent = data.city || "Unknown";
+        }).catch(() => {
+          document.getElementById("city").textContent = "Unavailable";
+        });
+    }
+    let stopwatchTime = 0, stopwatchInt = null, lapCount = 1;
+    function updateStopwatch() {
+      const m = String(Math.floor(stopwatchTime / 60)).padStart(2, '0');
+      const s = String(stopwatchTime % 60).padStart(2, '0');
+      document.getElementById("stopwatch").textContent = `${m}:${s}`;
+      document.getElementById("stopwatchProgress").style.width = `${(stopwatchTime % 600) / 600 * 100}%`;
+    }
+    function startStopwatch() {
+      if (stopwatchInt) return;
+      stopwatchInt = setInterval(() => {
+        stopwatchTime++;
+        updateStopwatch();
+      }, 1000);
+    }
+    function resetStopwatch() {
+      clearInterval(stopwatchInt);
+      stopwatchInt = null;
+      stopwatchTime = 0;
+      lapCount = 1;
+      document.getElementById("lapLog").innerHTML = '';
+      updateStopwatch();
+    }
+    function recordLap() {
+      const m = String(Math.floor(stopwatchTime / 60)).padStart(2, '0');
+      const s = String(stopwatchTime % 60).padStart(2, '0');
+      const div = document.createElement("div");
+      div.textContent = `Lap ${lapCount++}: ${m}:${s}`;
+      document.getElementById("lapLog").appendChild(div);
+    }
+    let timerDuration = 0, timerRemaining = 0, timerInt = null;
+    function updateTimerDisplay() {
+      const m = String(Math.floor(timerRemaining / 60)).padStart(2, '0');
+      const s = String(timerRemaining % 60).padStart(2, '0');
+      document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+      const pct = timerDuration ? (timerRemaining / timerDuration) * 100 : 0;
+      document.getElementById("timerProgress").style.width = `${pct}%`;
+    }
+    function promptTimer() {
+      const input = prompt("Set timer (MMSS or MM:SS):", "");
+      if (!input) return;
+      let total = 0;
+      if (input.includes(":")) {
+        const [m, s] = input.split(":").map(n => parseInt(n));
+        total = m * 60 + s;
+      } else {
+        const digits = input.replace(/\D/g, "").padStart(4, '0');
+        total = parseInt(digits.slice(0, 2)) * 60 + parseInt(digits.slice(2));
+      }
+      timerDuration = timerRemaining = Math.max(0, total);
+      updateTimerDisplay();
+    }
+    function startTimer() {
+      if (timerInt || timerRemaining <= 0) return;
+      timerInt = setInterval(() => {
+        timerRemaining--;
+        updateTimerDisplay();
+        if (timerRemaining <= 0) {
+          clearInterval(timerInt);
+          timerInt = null;
+        }
+      }, 1000);
+    }
+    function resetTimer() {
+      clearInterval(timerInt);
+      timerInt = null;
+      timerRemaining = timerDuration;
+      updateTimerDisplay();
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+    getCityName();
+    updateStopwatch();
+    updateTimerDisplay();
+  </script>
+</body>
+</html>
