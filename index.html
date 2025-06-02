@@ -106,7 +106,7 @@
       align-items: center;
       gap: 6px;
     }
-    .start-button, .lap-button {
+    .start-button {
       background-color: var(--accent-1);
       border: none;
       border-radius: 20px;
@@ -137,7 +137,7 @@
     }
     .dots {
       position: absolute;
-      bottom: 18px;
+      bottom: 20px;
       width: 100%;
       text-align: center;
       padding-bottom: 8px;
@@ -161,18 +161,24 @@
     .city-label {
       font-size: 13px;
       color: var(--accent-2);
-      margin-bottom: 2px;
     }
     .day-label {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
-      margin-top: -6px;
+      margin-bottom: 4px;
     }
     .mode-label {
       font-size: 14px;
       font-weight: bold;
       color: var(--text-light);
       margin-top: 8px;
+    }
+    .flash {
+      animation: flash 0.5s alternate 3;
+    }
+    @keyframes flash {
+      from { background-color: var(--bg-dark); }
+      to { background-color: #ff0066; }
     }
   </style>
 </head>
@@ -181,10 +187,10 @@
     <div class="swiper" id="swiper">
       <!-- Clock Panel -->
       <div class="panel" id="clock-panel">
-        <div class="clock-display" id="clock-display">--:--</div>
-        <div class="progress-bar"><div class="progress" id="clock-progress"></div></div>
+        <div class="clock-display" id="clock-display">--:--:--</div>
+        <div class="progress-bar"><div class="progress" id="day-progress"></div></div>
         <div class="city-label" id="city-label">Loading...</div>
-        <div class="day-label" id="day-label">---</div>
+        <div class="day-label" id="day-label"></div>
         <div class="mode-label">Local Time</div>
       </div>
       <!-- Stopwatch Panel -->
@@ -192,8 +198,8 @@
         <div class="time-display" id="stopwatch-display">00:00</div>
         <div class="progress-bar"><div class="progress"></div></div>
         <div class="button-stack">
-          <button class="start-button" id="lap-btn">Lap</button>
-          <button class="cancel-button" id="reset-btn">Reset</button>
+          <button class="start-button" id="sw-start-btn">Start</button>
+          <button class="cancel-button" id="sw-reset-btn">Reset</button>
         </div>
         <div class="lap-log" id="lap-log"></div>
         <div class="mode-label">Stopwatch</div>
@@ -203,8 +209,8 @@
         <div class="time-display" id="timer-display">00:00</div>
         <div class="progress-bar"><div class="progress" id="timer-progress"></div></div>
         <div class="button-stack">
-          <button class="start-button" id="start-btn">Start</button>
-          <button class="cancel-button" id="cancel-btn">Cancel</button>
+          <button class="start-button" id="timer-start-btn">Start</button>
+          <button class="cancel-button" id="timer-cancel-btn">Cancel</button>
         </div>
         <div class="mode-label">Countdown Timer</div>
       </div>
@@ -212,10 +218,11 @@
     <div class="info-button" id="info-btn">?</div>
     <div class="popup" id="info-popup">
       <strong>How to Use:</strong><br>
-      Swipe left or right to switch modes.<br>
-      Tap the countdown time to set it manually.<br>
-      Click Lap to log times.<br>
-      Clock shows your current location time.
+      • Swipe or tap dots to change modes<br>
+      • Tap countdown to set time<br>
+      • Stopwatch has Lap + Reset<br>
+      • Timer alerts with sound + flash<br>
+      • Clock shows your current city
     </div>
     <div class="dots">
       <span class="dot active" data-index="0"></span>
@@ -224,6 +231,7 @@
     </div>
     <audio id="alarm-sound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
   </div>
+
   <script>
     const swiper = document.getElementById('swiper');
     const dots = document.querySelectorAll('.dot');
@@ -242,95 +250,122 @@
       });
     });
 
-    // Touch swipe detection
+    // Swipe support (basic)
     let startX = 0;
     swiper.addEventListener('touchstart', (e) => {
       startX = e.touches[0].clientX;
     });
     swiper.addEventListener('touchend', (e) => {
-      const endX = e.changedTouches[0].clientX;
-      const diff = startX - endX;
-      if (Math.abs(diff) > 50) {
-        if (diff > 0 && currentIndex < 2) updateSwiper(currentIndex + 1);
-        else if (diff < 0 && currentIndex > 0) updateSwiper(currentIndex - 1);
-      }
+      let endX = e.changedTouches[0].clientX;
+      if (startX - endX > 50 && currentIndex < 2) updateSwiper(currentIndex + 1);
+      if (endX - startX > 50 && currentIndex > 0) updateSwiper(currentIndex - 1);
     });
 
+    // Clock
     function updateClock() {
       const now = new Date();
-      const hours = now.getHours();
-      const minutes = now.getMinutes();
-      const seconds = now.getSeconds();
-      const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-      const dayString = now.toLocaleDateString(undefined, { weekday: 'long' });
-      document.getElementById('clock-display').textContent = timeString;
-      document.getElementById('day-label').textContent = dayString;
-      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-      const percentOfDay = (totalSeconds / 86400) * 100;
-      document.getElementById('clock-progress').style.width = `${percentOfDay}%`;
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const seconds = now.getSeconds().toString().padStart(2, '0');
+      document.getElementById('clock-display').textContent = `${hours}:${minutes}:${seconds}`;
+
+      const percent = ((hours * 3600 + minutes * 60 + seconds) / 86400) * 100;
+      document.getElementById('day-progress').style.width = `${percent}%`;
+
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      document.getElementById('day-label').textContent = days[now.getDay()];
     }
     setInterval(updateClock, 1000);
     updateClock();
 
     fetch('https://ipapi.co/json/')
-      .then(response => response.json())
-      .then(data => {
-        document.getElementById('city-label').textContent = data.city || 'Your City';
-      });
+      .then(res => res.json())
+      .then(data => document.getElementById('city-label').textContent = data.city || 'Your City');
 
-    let timerSeconds = 0;
-    let timerInterval;
-    const timerDisplay = document.getElementById('timer-display');
-    const progressBar = document.getElementById('timer-progress');
-    const alarmSound = document.getElementById('alarm-sound');
+    // Stopwatch
+    let swInterval, swSeconds = 0, running = false;
+    const swDisplay = document.getElementById('stopwatch-display');
+    const lapLog = document.getElementById('lap-log');
 
-    timerDisplay.addEventListener('click', () => {
-      const input = prompt("Enter time in MMSS format:");
-      if (input && /^\d{1,4}$/.test(input)) {
-        let padded = input.padStart(4, '0');
-        let minutes = parseInt(padded.slice(0, 2));
-        let seconds = parseInt(padded.slice(2, 4));
-        timerSeconds = minutes * 60 + seconds;
-        updateTimerDisplay();
-        updateProgressBar();
+    function updateSWDisplay() {
+      swDisplay.textContent = String(Math.floor(swSeconds / 60)).padStart(2, '0') + ':' + String(swSeconds % 60).padStart(2, '0');
+    }
+
+    document.getElementById('sw-start-btn').addEventListener('click', () => {
+      if (!running) {
+        swInterval = setInterval(() => {
+          swSeconds++;
+          updateSWDisplay();
+        }, 1000);
+        running = true;
+        document.getElementById('sw-start-btn').textContent = 'Lap';
+      } else {
+        const lap = swDisplay.textContent;
+        const div = document.createElement('div');
+        div.textContent = lap;
+        lapLog.prepend(div);
       }
     });
 
+    document.getElementById('sw-reset-btn').addEventListener('click', () => {
+      clearInterval(swInterval);
+      swSeconds = 0;
+      running = false;
+      updateSWDisplay();
+      lapLog.innerHTML = '';
+      document.getElementById('sw-start-btn').textContent = 'Start';
+    });
+
+    // Timer
+    let timerInterval, timerSeconds = 0;
+    const timerDisplay = document.getElementById('timer-display');
+    const timerProgress = document.getElementById('timer-progress');
+    const alarmSound = document.getElementById('alarm-sound');
+
     function updateTimerDisplay() {
-      let m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
-      let s = String(timerSeconds % 60).padStart(2, '0');
-      timerDisplay.textContent = `${m}:${s}`;
+      timerDisplay.textContent = String(Math.floor(timerSeconds / 60)).padStart(2, '0') + ':' + String(timerSeconds % 60).padStart(2, '0');
     }
 
-    function updateProgressBar() {
-      const total = parseInt(timerDisplay.dataset.total) || timerSeconds;
-      const percent = timerSeconds / total * 100;
-      progressBar.style.width = `${percent}%`;
-    }
+    timerDisplay.addEventListener('click', () => {
+      const input = prompt("Enter time (MMSS):");
+      if (input && /^\d{1,4}$/.test(input)) {
+        let padded = input.padStart(4, '0');
+        let min = parseInt(padded.slice(0, 2));
+        let sec = parseInt(padded.slice(2, 4));
+        timerSeconds = min * 60 + sec;
+        updateTimerDisplay();
+        timerProgress.style.width = '100%';
+      }
+    });
 
-    document.getElementById('start-btn').addEventListener('click', () => {
+    document.getElementById('timer-start-btn').addEventListener('click', () => {
       clearInterval(timerInterval);
       const total = timerSeconds;
-      timerDisplay.dataset.total = total;
       timerInterval = setInterval(() => {
         if (timerSeconds > 0) {
           timerSeconds--;
           updateTimerDisplay();
-          updateProgressBar();
+          timerProgress.style.width = `${(timerSeconds / total) * 100}%`;
         } else {
           clearInterval(timerInterval);
+          timerProgress.style.width = '0%';
           alarmSound.play();
+          document.getElementById('timer-panel').classList.add('flash');
+          setTimeout(() => {
+            document.getElementById('timer-panel').classList.remove('flash');
+          }, 1500);
         }
       }, 1000);
     });
 
-    document.getElementById('cancel-btn').addEventListener('click', () => {
+    document.getElementById('timer-cancel-btn').addEventListener('click', () => {
       clearInterval(timerInterval);
       timerSeconds = 0;
       updateTimerDisplay();
-      progressBar.style.width = '0%';
+      timerProgress.style.width = '0%';
     });
 
+    // Info
     document.getElementById('info-btn').addEventListener('click', () => {
       const popup = document.getElementById('info-popup');
       popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
