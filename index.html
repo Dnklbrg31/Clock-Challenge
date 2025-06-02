@@ -84,6 +84,7 @@
       width: 100%;
       text-align: center;
       overflow: hidden;
+      cursor: pointer;
     }
     .progress-bar {
       width: 100%;
@@ -157,190 +158,165 @@
     .dot:hover {
       background-color: var(--accent-2);
     }
-    .city-label, .mode-label {
+    .city-label {
+      font-size: 13px;
+      color: var(--accent-2);
+      margin-bottom: 2px;
+    }
+    .mode-label {
       font-size: 14px;
       font-weight: bold;
       color: var(--text-light);
-    }
-    .clock-label {
-      font-size: 13px;
-      color: var(--accent-2);
-      margin-bottom: 6px;
+      margin-top: 8px;
     }
   </style>
 </head>
 <body>
-  <!-- content unchanged -->
-  <div class="widget-container" ontouchstart="startTouch(event)" ontouchmove="moveTouch(event)">
-    <div class="info-button" onclick="togglePopup()">?</div>
-    <div class="popup" id="infoPopup">
-      <strong>Instructions:</strong><br/>
-      • Swipe left/right on touch devices<br/>
-      • Or click the dots below to switch modes<br/>
-      • Each mode has its own controls<br/>
-    </div>
+  <div class="widget-container">
     <div class="swiper" id="swiper">
-      <!-- CLOCK -->
-      <div class="panel">
-        <div class="clock-display" id="clock">--:--:--</div>
-        <div class="progress-bar"><div class="progress" id="clockProgress"></div></div>
-        <div class="city-label" id="city">Loading...</div>
-        <div class="clock-label">Local Time</div>
+      <!-- Clock Panel -->
+      <div class="panel" id="clock-panel">
+        <div class="clock-display" id="clock-display">--:--</div>
+        <div class="progress-bar"><div class="progress" id="clock-progress"></div></div>
+        <div class="city-label" id="city-label">Loading...</div>
+        <div class="mode-label">Local Time</div>
       </div>
-
-      <!-- STOPWATCH -->
-      <div class="panel">
-        <div class="time-display" id="stopwatch">00:00</div>
-        <div class="progress-bar"><div class="progress" id="stopwatchProgress"></div></div>
-        <div class="mode-label">Stopwatch Mode</div>
+      <!-- Stopwatch Panel -->
+      <div class="panel" id="stopwatch-panel">
+        <div class="time-display" id="stopwatch-display">00:00</div>
+        <div class="progress-bar"><div class="progress"></div></div>
         <div class="button-stack">
-          <button class="start-button" onclick="startStopwatch()">Start</button>
-          <button class="cancel-button" onclick="resetStopwatch()">Reset</button>
+          <button class="start-button" id="lap-btn">Lap</button>
+          <button class="cancel-button" id="reset-btn">Reset</button>
         </div>
-        <button class="lap-button" onclick="recordLap()">Lap</button>
-        <div class="lap-log" id="lapLog"></div>
+        <div class="lap-log" id="lap-log"></div>
+        <div class="mode-label">Stopwatch</div>
       </div>
-
-      <!-- TIMER -->
-      <div class="panel">
-        <div class="time-display" id="timerDisplay" onclick="promptTimer()">00:00</div>
-        <div class="progress-bar"><div class="progress" id="timerProgress"></div></div>
+      <!-- Timer Panel -->
+      <div class="panel" id="timer-panel">
+        <div class="time-display" id="timer-display">00:00</div>
+        <div class="progress-bar"><div class="progress" id="timer-progress"></div></div>
+        <div class="button-stack">
+          <button class="start-button" id="start-btn">Start</button>
+          <button class="cancel-button" id="cancel-btn">Cancel</button>
+        </div>
         <div class="mode-label">Countdown Timer</div>
-        <div class="button-stack">
-          <button class="start-button" onclick="startTimer()">Start</button>
-          <button class="cancel-button" onclick="resetTimer()">Cancel</button>
-        </div>
       </div>
+    </div>
+    <div class="info-button" id="info-btn">?</div>
+    <div class="popup" id="info-popup">
+      <strong>How to Use:</strong><br>
+      Swipe left or right to switch modes.<br>
+      Tap the countdown time to set it manually.<br>
+      Click Lap to log times.<br>
+      Clock shows your current location time.
     </div>
     <div class="dots">
-      <span class="dot active" onclick="goToPage(0)"></span>
-      <span class="dot" onclick="goToPage(1)"></span>
-      <span class="dot" onclick="goToPage(2)"></span>
+      <span class="dot active" data-index="0"></span>
+      <span class="dot" data-index="1"></span>
+      <span class="dot" data-index="2"></span>
     </div>
+    <audio id="alarm-sound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
   </div>
   <script>
-    let currentPage = 0;
-    let startX = null;
-    const swiper = document.getElementById("swiper");
+    const swiper = document.getElementById('swiper');
+    const dots = document.querySelectorAll('.dot');
+    let currentIndex = 0;
 
-    function updateSwiper() {
-      swiper.style.transform = `translateX(-${currentPage * 320}px)`;
-      document.querySelectorAll('.dot').forEach((dot, i) => {
-        dot.classList.toggle('active', i === currentPage);
+    function updateSwiper(index) {
+      swiper.style.transform = `translateX(-${index * 320}px)`;
+      dots.forEach(dot => dot.classList.remove('active'));
+      dots[index].classList.add('active');
+      currentIndex = index;
+    }
+
+    dots.forEach(dot => {
+      dot.addEventListener('click', () => {
+        updateSwiper(parseInt(dot.getAttribute('data-index')));
       });
-    }
-    function startTouch(e) {
-      startX = e.touches[0].clientX;
-    }
-    function moveTouch(e) {
-      if (!startX) return;
-      const deltaX = e.touches[0].clientX - startX;
-      if (Math.abs(deltaX) > 50) {
-        if (deltaX < 0 && currentPage < 2) currentPage++;
-        else if (deltaX > 0 && currentPage > 0) currentPage--;
-        updateSwiper();
-        startX = null;
-      }
-    }
-    function goToPage(i) {
-      currentPage = i;
-      updateSwiper();
-    }
-    function togglePopup() {
-      const popup = document.getElementById("infoPopup");
-      popup.style.display = popup.style.display === "block" ? "none" : "block";
-    }
+    });
+
+    // Clock update and day progress
     function updateClock() {
       const now = new Date();
-      const h = String(now.getHours()).padStart(2, '0');
-      const m = String(now.getMinutes()).padStart(2, '0');
-      const s = String(now.getSeconds()).padStart(2, '0');
-      document.getElementById("clock").textContent = `${h}:${m}:${s}`;
-      const pct = ((now.getMinutes() * 60) + now.getSeconds()) / 3600 * 100;
-      document.getElementById("clockProgress").style.width = `${pct}%`;
-    }
-    function getCityName() {
-      fetch('https://ipapi.co/json/')
-        .then(res => res.json())
-        .then(data => {
-          document.getElementById("city").textContent = data.city || "Unknown";
-        }).catch(() => {
-          document.getElementById("city").textContent = "Unavailable";
-        });
-    }
-    let stopwatchTime = 0, stopwatchInt = null, lapCount = 1;
-    function updateStopwatch() {
-      const m = String(Math.floor(stopwatchTime / 60)).padStart(2, '0');
-      const s = String(stopwatchTime % 60).padStart(2, '0');
-      document.getElementById("stopwatch").textContent = `${m}:${s}`;
-      document.getElementById("stopwatchProgress").style.width = `${(stopwatchTime % 600) / 600 * 100}%`;
-    }
-    function startStopwatch() {
-      if (stopwatchInt) return;
-      stopwatchInt = setInterval(() => {
-        stopwatchTime++;
-        updateStopwatch();
-      }, 1000);
-    }
-    function resetStopwatch() {
-      clearInterval(stopwatchInt);
-      stopwatchInt = null;
-      stopwatchTime = 0;
-      lapCount = 1;
-      document.getElementById("lapLog").innerHTML = '';
-      updateStopwatch();
-    }
-    function recordLap() {
-      const m = String(Math.floor(stopwatchTime / 60)).padStart(2, '0');
-      const s = String(stopwatchTime % 60).padStart(2, '0');
-      const div = document.createElement("div");
-      div.textContent = `Lap ${lapCount++}: ${m}:${s}`;
-      document.getElementById("lapLog").appendChild(div);
-    }
-    let timerDuration = 0, timerRemaining = 0, timerInt = null;
-    function updateTimerDisplay() {
-      const m = String(Math.floor(timerRemaining / 60)).padStart(2, '0');
-      const s = String(timerRemaining % 60).padStart(2, '0');
-      document.getElementById("timerDisplay").textContent = `${m}:${s}`;
-      const pct = timerDuration ? (timerRemaining / timerDuration) * 100 : 0;
-      document.getElementById("timerProgress").style.width = `${pct}%`;
-    }
-    function promptTimer() {
-      const input = prompt("Set timer (MMSS or MM:SS):", "");
-      if (!input) return;
-      let total = 0;
-      if (input.includes(":")) {
-        const [m, s] = input.split(":").map(n => parseInt(n));
-        total = m * 60 + s;
-      } else {
-        const digits = input.replace(/\D/g, "").padStart(4, '0');
-        total = parseInt(digits.slice(0, 2)) * 60 + parseInt(digits.slice(2));
-      }
-      timerDuration = timerRemaining = Math.max(0, total);
-      updateTimerDisplay();
-    }
-    function startTimer() {
-      if (timerInt || timerRemaining <= 0) return;
-      timerInt = setInterval(() => {
-        timerRemaining--;
-        updateTimerDisplay();
-        if (timerRemaining <= 0) {
-          clearInterval(timerInt);
-          timerInt = null;
-        }
-      }, 1000);
-    }
-    function resetTimer() {
-      clearInterval(timerInt);
-      timerInt = null;
-      timerRemaining = timerDuration;
-      updateTimerDisplay();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const seconds = now.getSeconds();
+      const timeString = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+      document.getElementById('clock-display').textContent = timeString;
+      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+      const percentOfDay = (totalSeconds / 86400) * 100;
+      document.getElementById('clock-progress').style.width = `${percentOfDay}%`;
     }
     setInterval(updateClock, 1000);
     updateClock();
-    getCityName();
-    updateStopwatch();
-    updateTimerDisplay();
+
+    // Fetch city name
+    fetch('https://ipapi.co/json/')
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('city-label').textContent = data.city || 'Your City';
+      });
+
+    // Timer logic
+    let timerSeconds = 0;
+    let timerInterval;
+    const timerDisplay = document.getElementById('timer-display');
+    const progressBar = document.getElementById('timer-progress');
+    const alarmSound = document.getElementById('alarm-sound');
+
+    timerDisplay.addEventListener('click', () => {
+      const input = prompt("Enter time in MMSS format:");
+      if (input && /^\d{1,4}$/.test(input)) {
+        let padded = input.padStart(4, '0');
+        let minutes = parseInt(padded.slice(0, 2));
+        let seconds = parseInt(padded.slice(2, 4));
+        timerSeconds = minutes * 60 + seconds;
+        updateTimerDisplay();
+        updateProgressBar();
+      }
+    });
+
+    function updateTimerDisplay() {
+      let m = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+      let s = String(timerSeconds % 60).padStart(2, '0');
+      timerDisplay.textContent = `${m}:${s}`;
+    }
+
+    function updateProgressBar() {
+      const total = parseInt(timerDisplay.dataset.total) || timerSeconds;
+      const percent = timerSeconds / total * 100;
+      progressBar.style.width = `${percent}%`;
+    }
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+      clearInterval(timerInterval);
+      const total = timerSeconds;
+      timerDisplay.dataset.total = total;
+      timerInterval = setInterval(() => {
+        if (timerSeconds > 0) {
+          timerSeconds--;
+          updateTimerDisplay();
+          updateProgressBar();
+        } else {
+          clearInterval(timerInterval);
+          alarmSound.play();
+        }
+      }, 1000);
+    });
+
+    document.getElementById('cancel-btn').addEventListener('click', () => {
+      clearInterval(timerInterval);
+      timerSeconds = 0;
+      updateTimerDisplay();
+      progressBar.style.width = '0%';
+    });
+
+    // Info popup toggle
+    document.getElementById('info-btn').addEventListener('click', () => {
+      const popup = document.getElementById('info-popup');
+      popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+    });
   </script>
 </body>
 </html>
