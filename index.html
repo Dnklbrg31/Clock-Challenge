@@ -190,6 +190,23 @@
       from { background-color: var(--bg-dark); }
       to { background-color: #ff0066; }
     }
+    /* Timer edit input overlay */
+    #timer-edit {
+      display:none;
+      position:absolute;
+      left:0; right:0;
+      margin:auto;
+      top:40px;
+      width:120px;
+      font-size:48px;
+      text-align:center;
+      background:rgba(0,0,0,0.7);
+      color:var(--accent-1);
+      border:none;
+      border-radius:8px;
+      outline:none;
+      z-index:100;
+    }
   </style>
 </head>
 <body>
@@ -221,8 +238,9 @@
         <div class="mode-label">Stopwatch</div>
       </div>
       <!-- Timer Panel -->
-      <div class="panel" id="timer-panel">
+      <div class="panel" id="timer-panel" style="position:relative;">
         <div class="time-display" id="timer-display">00:00</div>
+        <input id="timer-edit" type="text" maxlength="4" pattern="[0-9]*" inputmode="numeric" autocomplete="off" />
         <div class="progress-bar"><div class="progress" id="timer-progress"></div></div>
         <div class="button-stack">
           <button class="start-button" id="timer-start-btn">Start</button>
@@ -249,7 +267,7 @@
   </div>
 
   <script>
-    // Theme logic
+    // Define themes ONCE at the top
     const themes = {
       synthwave: {
         '--bg-dark': '#0f0c29',
@@ -274,11 +292,7 @@
       }
     };
 
-    document.getElementById('theme-btn').onclick = () => {
-      const popup = document.getElementById('theme-popup');
-      popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
-    };
-
+    // Make setTheme global for inline HTML
     function setTheme(name) {
       const theme = themes[name];
       for (let key in theme) {
@@ -287,150 +301,186 @@
       localStorage.setItem('theme', name);
       document.getElementById('theme-popup').style.display = 'none';
     }
+    window.setTheme = setTheme;
 
-    window.onload = () => {
+    window.onload = function() {
+      // Theme logic
       const saved = localStorage.getItem('theme');
       if (saved && themes[saved]) setTheme(saved);
-    };
 
-    // Swiper logic
-    const swiper = document.getElementById('swiper');
-    const dots = document.querySelectorAll('.dot');
-    let currentIndex = 0;
+      // Show/hide theme popup on paintbrush click
+      document.getElementById('theme-btn').onclick = function() {
+        const popup = document.getElementById('theme-popup');
+        popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+      };
 
-    function updateSwiper(index) {
-      swiper.style.transform = `translateX(-${index * 320}px)`;
-      dots.forEach(dot => dot.classList.remove('active'));
-      dots[index].classList.add('active');
-      currentIndex = index;
-    }
+      // Swiper logic
+      const swiper = document.getElementById('swiper');
+      const dots = document.querySelectorAll('.dot');
+      let currentIndex = 0;
 
-    dots.forEach(dot => {
-      dot.addEventListener('click', () => {
-        updateSwiper(parseInt(dot.getAttribute('data-index')));
+      function updateSwiper(index) {
+        swiper.style.transform = `translateX(-${index * 320}px)`;
+        dots.forEach(dot => dot.classList.remove('active'));
+        dots[index].classList.add('active');
+        currentIndex = index;
+      }
+
+      dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+          updateSwiper(parseInt(dot.getAttribute('data-index')));
+        });
       });
-    });
 
-    // Swipe support (basic)
-    let startX = 0;
-    swiper.addEventListener('touchstart', (e) => {
-      startX = e.touches[0].clientX;
-    });
-    swiper.addEventListener('touchend', (e) => {
-      let endX = e.changedTouches[0].clientX;
-      if (startX - endX > 50 && currentIndex < 2) updateSwiper(currentIndex + 1);
-      if (endX - startX > 50 && currentIndex > 0) updateSwiper(currentIndex - 1);
-    });
+      // Swipe support (basic)
+      let startX = 0;
+      swiper.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+      });
+      swiper.addEventListener('touchend', (e) => {
+        let endX = e.changedTouches[0].clientX;
+        if (startX - endX > 50 && currentIndex < 2) updateSwiper(currentIndex + 1);
+        if (endX - startX > 50 && currentIndex > 0) updateSwiper(currentIndex - 1);
+      });
 
-    // Clock
-    function updateClock() {
-      const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const seconds = now.getSeconds().toString().padStart(2, '0');
-      document.getElementById('clock-display').textContent = `${hours}:${minutes}:${seconds}`;
+      // Clock
+      function updateClock() {
+        const now = new Date();
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const seconds = now.getSeconds().toString().padStart(2, '0');
+        document.getElementById('clock-display').textContent = `${hours}:${minutes}:${seconds}`;
 
-      const percent = ((hours * 3600 + minutes * 60 + seconds) / 86400) * 100;
-      document.getElementById('day-progress').style.width = `${percent}%`;
+        const percent = ((hours * 3600 + minutes * 60 + seconds) / 86400) * 100;
+        document.getElementById('day-progress').style.width = `${percent}%`;
 
-      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      document.getElementById('day-label').textContent = days[now.getDay()];
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-    fetch('https://ipapi.co/json/')
-      .then(res => res.json())
-      .then(data => document.getElementById('city-label').textContent = data.city || 'Your City');
-
-    // Stopwatch
-    let swInterval, swSeconds = 0, running = false;
-    const swDisplay = document.getElementById('stopwatch-display');
-    const lapLog = document.getElementById('lap-log');
-
-    function updateSWDisplay() {
-      swDisplay.textContent = String(Math.floor(swSeconds / 60)).padStart(2, '0') + ':' + String(swSeconds % 60).padStart(2, '0');
-    }
-
-    document.getElementById('sw-start-btn').addEventListener('click', () => {
-      if (!running) {
-        swInterval = setInterval(() => {
-          swSeconds++;
-          updateSWDisplay();
-        }, 1000);
-        running = true;
-        document.getElementById('sw-start-btn').textContent = 'Lap';
-      } else {
-        const lap = swDisplay.textContent;
-        const div = document.createElement('div');
-        div.textContent = lap;
-        lapLog.prepend(div);
+        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        document.getElementById('day-label').textContent = days[now.getDay()];
       }
-    });
+      setInterval(updateClock, 1000);
+      updateClock();
 
-    document.getElementById('sw-reset-btn').addEventListener('click', () => {
-      clearInterval(swInterval);
-      swSeconds = 0;
-      running = false;
-      updateSWDisplay();
-      lapLog.innerHTML = '';
-      document.getElementById('sw-start-btn').textContent = 'Start';
-    });
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => document.getElementById('city-label').textContent = data.city || 'Your City');
 
-    // Timer
-    let timerInterval, timerSeconds = 0;
-    const timerDisplay = document.getElementById('timer-display');
-    const timerProgress = document.getElementById('timer-progress');
-    const alarmSound = document.getElementById('alarm-sound');
+      // Stopwatch
+      let swInterval, swSeconds = 0, running = false;
+      const swDisplay = document.getElementById('stopwatch-display');
+      const lapLog = document.getElementById('lap-log');
 
-    function updateTimerDisplay() {
-      timerDisplay.textContent = String(Math.floor(timerSeconds / 60)).padStart(2, '0') + ':' + String(timerSeconds % 60).padStart(2, '0');
-    }
-
-    timerDisplay.addEventListener('click', () => {
-      const input = prompt("Enter time (MMSS):");
-      if (input && /^\d{1,4}$/.test(input)) {
-        let padded = input.padStart(4, '0');
-        let min = parseInt(padded.slice(0, 2));
-        let sec = parseInt(padded.slice(2, 4));
-        timerSeconds = min * 60 + sec;
-        updateTimerDisplay();
-        timerProgress.style.width = '100%';
+      function updateSWDisplay() {
+        swDisplay.textContent = String(Math.floor(swSeconds / 60)).padStart(2, '0') + ':' + String(swSeconds % 60).padStart(2, '0');
       }
-    });
 
-    document.getElementById('timer-start-btn').addEventListener('click', () => {
-      clearInterval(timerInterval);
-      const total = timerSeconds;
-      timerInterval = setInterval(() => {
-        if (timerSeconds > 0) {
-          timerSeconds--;
-          updateTimerDisplay();
-          timerProgress.style.width = `${(timerSeconds / total) * 100}%`;
+      document.getElementById('sw-start-btn').addEventListener('click', () => {
+        if (!running) {
+          swInterval = setInterval(() => {
+            swSeconds++;
+            updateSWDisplay();
+          }, 1000);
+          running = true;
+          document.getElementById('sw-start-btn').textContent = 'Lap';
         } else {
-          clearInterval(timerInterval);
-          timerProgress.style.width = '0%';
-          alarmSound.play();
-          document.getElementById('timer-panel').classList.add('flash');
-          setTimeout(() => {
-            document.getElementById('timer-panel').classList.remove('flash');
-          }, 1500);
+          const lap = swDisplay.textContent;
+          const div = document.createElement('div');
+          div.textContent = lap;
+          lapLog.prepend(div);
         }
-      }, 1000);
-    });
+      });
 
-    document.getElementById('timer-cancel-btn').addEventListener('click', () => {
-      clearInterval(timerInterval);
-      timerSeconds = 0;
-      updateTimerDisplay();
-      timerProgress.style.width = '0%';
-    });
+      document.getElementById('sw-reset-btn').addEventListener('click', () => {
+        clearInterval(swInterval);
+        swSeconds = 0;
+        running = false;
+        updateSWDisplay();
+        lapLog.innerHTML = '';
+        document.getElementById('sw-start-btn').textContent = 'Start';
+      });
 
-    // Info
-    document.getElementById('info-btn').addEventListener('click', () => {
-      const popup = document.getElementById('info-popup');
-      popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
-    });
+      // Timer
+      let timerInterval, timerSeconds = 0, timerTotalSeconds = 0;
+      const timerDisplay = document.getElementById('timer-display');
+      const timerProgress = document.getElementById('timer-progress');
+      const alarmSound = document.getElementById('alarm-sound');
+      const timerEdit = document.getElementById('timer-edit');
+
+      function updateTimerDisplay() {
+        timerDisplay.textContent = String(Math.floor(timerSeconds / 60)).padStart(2, '0') + ':' + String(timerSeconds % 60).padStart(2, '0');
+      }
+
+      // Show input on click
+      timerDisplay.addEventListener('click', () => {
+        timerEdit.value = '';
+        timerEdit.style.display = 'block';
+        timerDisplay.style.visibility = 'hidden';
+        timerEdit.focus();
+      });
+
+      // Handle input completion
+      function finishTimerEdit() {
+        const input = timerEdit.value.replace(/\D/g, '');
+        if (input && /^\d{1,4}$/.test(input)) {
+          let padded = input.padStart(4, '0');
+          let min = parseInt(padded.slice(0, 2));
+          let sec = parseInt(padded.slice(2, 4));
+          timerSeconds = min * 60 + sec;
+          timerTotalSeconds = timerSeconds;
+          updateTimerDisplay();
+          timerProgress.style.width = '100%';
+        }
+        timerEdit.style.display = 'none';
+        timerDisplay.style.visibility = 'visible';
+      }
+
+      timerEdit.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          finishTimerEdit();
+        }
+        if (e.key === 'Escape') {
+          timerEdit.style.display = 'none';
+          timerDisplay.style.visibility = 'visible';
+        }
+      });
+      timerEdit.addEventListener('blur', finishTimerEdit);
+
+      document.getElementById('timer-start-btn').addEventListener('click', () => {
+        clearInterval(timerInterval);
+        // Only start if timerSeconds > 0
+        if (timerSeconds > 0) {
+          timerInterval = setInterval(() => {
+            if (timerSeconds > 0) {
+              timerSeconds--;
+              updateTimerDisplay();
+              // Use timerTotalSeconds for progress calculation
+              timerProgress.style.width = `${(timerSeconds / timerTotalSeconds) * 100}%`;
+            } else {
+              clearInterval(timerInterval);
+              timerProgress.style.width = '0%';
+              alarmSound.play();
+              document.getElementById('timer-panel').classList.add('flash');
+              setTimeout(() => {
+                document.getElementById('timer-panel').classList.remove('flash');
+              }, 1500);
+            }
+          }, 1000);
+        }
+      });
+
+      document.getElementById('timer-cancel-btn').addEventListener('click', () => {
+        clearInterval(timerInterval);
+        timerSeconds = 0;
+        timerTotalSeconds = 0;
+        updateTimerDisplay();
+        timerProgress.style.width = '0%';
+      });
+
+      // Info
+      document.getElementById('info-btn').addEventListener('click', () => {
+        const popup = document.getElementById('info-popup');
+        popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
+      });
+    };
   </script>
 </body>
 </html>
