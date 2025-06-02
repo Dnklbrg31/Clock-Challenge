@@ -26,7 +26,7 @@
       height: 100vh;
     }
     .widget-container {
-      width: 300px;
+      width: 320px;
       height: 300px;
       background-color: var(--bg-dark);
       border-radius: 18px;
@@ -60,12 +60,12 @@
     }
     .swiper {
       display: flex;
-      width: 900px;
+      width: 960px;
       height: 100%;
       transition: transform 0.3s ease-in-out;
     }
     .panel {
-      width: 300px;
+      width: 320px;
       height: 300px;
       padding: 18px 16px 50px;
       display: flex;
@@ -224,7 +224,7 @@
     const swiper = document.getElementById("swiper");
 
     function updateSwiper() {
-      swiper.style.transform = `translateX(-${currentPage * 300}px)`;
+      swiper.style.transform = `translateX(-${currentPage * 320}px)`;
       document.querySelectorAll('.dot').forEach((dot, i) => {
         dot.classList.toggle('active', i === currentPage);
       });
